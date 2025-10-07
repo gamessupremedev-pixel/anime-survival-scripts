@@ -88,32 +88,39 @@ function module.KnockBack(Humanoid, Direction, Strength)
 end
 
 function module.GetHumanoidInHitBox(character, head, direction, range, width, height)
-	-- Calculate hitbox position (centered in front of player)
+	-- Calculate hitbox position (centered in front of player in the given direction)
 	local hitboxPos = head.Position + (direction * (range / 2))
-
-	-- Create Region3 for hitbox
-	local region = Region3.new(
-		hitboxPos - Vector3.new(width/2, height/2, range/2),
-		hitboxPos + Vector3.new(width/2, height/2, range/2)
+	
+	-- Create OverlapParams
+	local overlapParams = OverlapParams.new()
+	overlapParams.FilterDescendantsInstances = {character}
+	overlapParams.FilterType = Enum.RaycastFilterType.Exclude
+	
+	-- Create a CFrame oriented in the direction
+	local hitboxCFrame = CFrame.lookAt(hitboxPos, hitboxPos + direction)
+	
+	-- Use GetPartBoundsInBox which properly handles rotation
+	local parts = workspace:GetPartBoundsInBox(
+		hitboxCFrame,
+		Vector3.new(width, height, range),
+		overlapParams
 	)
-
-	-- Find parts in region
-	local parts = workspace:FindPartsInRegion3(region, character, math.huge)
+	
 	local playersInRange = {}
-
-	-- Check for other players
+	
+	-- Check for humanoids
 	for _, part in pairs(parts) do
 		local model = part:FindFirstAncestorOfClass("Model")
 		if model then
-			local foundPlayer = model:FindFirstChild("Humanoid")
-			if foundPlayer and foundPlayer.Parent ~= character then
-				if not table.find(playersInRange, foundPlayer) then
-					table.insert(playersInRange, foundPlayer)
+			local foundHumanoid = model:FindFirstChild("Humanoid")
+			if foundHumanoid and foundHumanoid.Parent ~= character then
+				if not table.find(playersInRange, foundHumanoid) then
+					table.insert(playersInRange, foundHumanoid)
 				end
 			end
 		end
 	end
-
+	
 	return playersInRange
 end
 
