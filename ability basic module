@@ -1,5 +1,31 @@
 local AbilitiesHelper = require(game.ServerScriptService.AnimeCharacters.AbilitiesHelper)
 
+--FUNCTIONS TO HELP YA
+
+local function getClosestEnemyDirection(player)
+	local character = player.Character
+	if not character then return nil end
+	
+	local root = character:FindFirstChild("HumanoidRootPart")
+	if not root then return nil end
+	
+	-- Get the closest enemy using the module function
+	local closestEnemy = AbilitiesHelper.GetClosestEnemy(player)
+	
+	if closestEnemy then
+		local enemyRoot = closestEnemy:FindFirstChild("HumanoidRootPart")
+		if enemyRoot then
+			-- Calculate direction from player to enemy
+			local direction = (enemyRoot.Position - root.Position).Unit
+			return direction
+		end
+	end
+	
+	return nil
+end
+
+--Main Codes
+
 local CharacterAbilities = {}
 
 -- Base Character Class
@@ -83,7 +109,7 @@ function Luffy:Punch(abilityData)
 
 	if head and humanoidRootPart then
 		-- Get the direction the player is facing
-		local direction = humanoidRootPart.CFrame.LookVector
+		local direction = getClosestEnemyDirection(player)
 
 		-- Define hitbox parameters
 		local range = 10      -- How far in front (studs)
