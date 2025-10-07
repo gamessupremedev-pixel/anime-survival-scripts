@@ -1,180 +1,198 @@
-local AbilitiesHelper = require(game.ServerScriptService.AnimeCharacters.AbilitiesHelper)
+local CollectionService = game:GetService("CollectionService") 
 
---FUNCTIONS TO HELP YA
+local module = {}
 
-local function DebugWithHiglight(Model,color)
-  local Highlight
-  if not model then return end
-  if color == "yellow" then 
-    Highlight = Instance.new("Highlight")
-    Highlight.Parent = closestEnemy
-    Highlight.FillColor = Color3.fromRGB(255, 255, 0)
-    Highlight.OutlineColor = Color3.fromRGB(255, 255, 0)
-  elseif color == "red" then 
-    Highlight = Instance.new("Highlight")
-    Highlight.Parent = closestEnemy
-    Highlight.FillColor = Color3.fromRGB(255, 0, 0)
-    Highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
-  end
-  if Highlight then
-    task.spawn(function()
-      task.wait(5)
-      Highlight:Destroy()
-    end)
-  end
-end
+-- Weapon table with all weapon information
+module.Weapons = {
+	Punch = {
+		Damage = 25,
+		Range = 10,
+		Cooldown = 1,
+	},
+}
 
-local function getClosestEnemyDirection(player)
-	local character = player.Character
-	if not character then return nil end
-	
-	local root = character:FindFirstChild("HumanoidRootPart")
-	if not root then return nil end
-	
-	-- Get the closest enemy using the module function
-	local closestEnemy = AbilitiesHelper.GetClosestEnemy(player)
-	
-  
-	
-	if closestEnemy then
-		local enemyRoot = closestEnemy:FindFirstChild("HumanoidRootPart")
-		if enemyRoot then
-			-- Calculate direction from player to enemy
-			local direction = (enemyRoot.Position - root.Position).Unit
-			return direction
-		end
-	end
-	
-	return nil
-end
-
---Main Codes
-
-local CharacterAbilities = {}
-
--- Base Character Class
-local Character = {}
-Character.__index = Character
-
-function Character.new(name, player)
-	local self = setmetatable({}, Character)
-	self.name = name
-	self.player = player
-	self.cooldowns = {}
-	return self
-end
-
-function Character:isOnCooldown(abilityName)
-	if not self.cooldowns[abilityName] then
-		return false
-	end
-	return tick() < self.cooldowns[abilityName]
-end
-
-function Character:setCooldown(abilityName, duration)
-	self.cooldowns[abilityName] = tick() + duration
-end
-
-function Character:getAbilityData(abilityName)
-	-- Get weapons from Player, not Character
-	local weaponFolder = self.player:FindFirstChild("Weapons")
-	if not weaponFolder then 
-		warn("Weapons folder not found for player: " .. self.player.Name)
-		return nil 
+function module.AddWeapon(plr, weaponName)
+	-- Check if the weapon exists in the table
+	local weaponData = module.Weapons[weaponName]
+	if not weaponData then
+		warn("Weapon '" .. weaponName .. "' not found!")
+		return
 	end
 
-	local abilityFolder = weaponFolder:FindFirstChild(abilityName)
-	if not abilityFolder then
-		warn("Ability folder '" .. abilityName .. "' not found in Weapons")
-	end
-	return abilityFolder
-end
-
-function Character:useAbility(abilityName, ...)
-	if self:isOnCooldown(abilityName) then
-		warn(abilityName .. " is on cooldown!")
-		return false
+	-- Find or create the Weapons folder in the player
+	local weaponsFolder = plr:FindFirstChild("Weapons")
+	if not weaponsFolder then
+		weaponsFolder = Instance.new("Folder")
+		weaponsFolder.Name = "Weapons"
+		weaponsFolder.Parent = plr
 	end
 
-	-- Get ability data from player's weapon folder
-	local abilityData = self:getAbilityData(abilityName)
-	if not abilityData then
-		warn("Ability data not found for " .. abilityName)
-		return false
-	end
+	-- Create a folder for this specific weapon
+	local weaponFolder = Instance.new("Folder")
+	weaponFolder.Name = weaponName
+	weaponFolder.Parent = weaponsFolder
 
-	local ability = self[abilityName]
-	if ability and type(ability) == "function" then
-		ability(self, abilityData, ...)
-		return true
-	else
-		warn("Ability " .. abilityName .. " not found!")
-		return false
-	end
-end
+	-- Create Value objects for each key in the weapon data
+	for key, value in pairs(weaponData) do
+		local valueObj
 
--- Luffy Character
-local Luffy = setmetatable({}, {__index = Character})
-Luffy.__index = Luffy
-
-function Luffy.new(player)
-	local self = setmetatable(Character.new("Luffy", player), Luffy)
-	return self
-end
-
-function Luffy:Punch(abilityData)
-	local cooldown = abilityData and abilityData:FindFirstChild("Cooldown") and abilityData.Cooldown.Value or 1
-	self:setCooldown("Punch", cooldown)
-
-	-- Example usage in a combat script
-	local character = player.Character
-	local head = character:FindFirstChild("Head")
-	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-
-	if head and humanoidRootPart then
-		-- Get the direction the player is facing
-		local direction = getClosestEnemyDirection(player)
-
-		-- Define hitbox parameters
-		local range = 10      -- How far in front (studs)
-		local width = 5       -- How wide left/right (studs)
-		local height = 6      -- How tall up/down (studs)
-
-		-- Get all humanoids in the hitbox
-		local hitHumanoids = module.GetHumanoidInHitBox(
-			character,
-			head,
-			direction,
-			range,
-			width,
-			height
-		)
-
-		-- Do something with the hit humanoids
-		for _, humanoid in pairs(hitHumanoids) do
-			print("Hit:", humanoid.Parent.Name)
-			-- Deal damage
-			humanoid:TakeDamage(20)
-			-- Or apply knockback, effects, etc.
+		-- Create the appropriate Value type based on the data type
+		if type(value) == "number" then
+			if value % 1 == 0 then
+				valueObj = Instance.new("IntValue")
+			else
+				valueObj = Instance.new("NumberValue")
+			end
+		elseif type(value) == "string" then
+			valueObj = Instance.new("StringValue")
+		elseif type(value) == "boolean" then
+			valueObj = Instance.new("BoolValue")
 		end
 
-		-- Check if we hit anyone
-		if #hitHumanoids > 0 then
-			print("Hit " .. #hitHumanoids .. " targets!")
-		else
-			print("Missed!")
+		if valueObj then
+			valueObj.Name = key
+			valueObj.Value = value
+			valueObj.Parent = weaponFolder
 		end
 	end
 end
 
--- Factory function
-function CharacterAbilities.createCharacter(className, player)
-	if className == "Luffy" then
-		return Luffy.new(player)
-	else
-		warn("Unknown character class: " .. className)
-		return nil
+function module.playSoundClone(parent, originalSound)
+	if not parent or not originalSound then
+		warn("playSoundClone: parent and originalSound parameters are required")
+		return
+	end
+
+	if not originalSound:IsA("Sound") then
+		warn("playSoundClone: originalSound must be a Sound object")
+		return
+	end
+
+	local soundClone = originalSound:Clone()
+	soundClone.Parent = parent
+	soundClone:Play()
+	local connection
+	connection = soundClone.Ended:Connect(function()
+		connection:Disconnect()
+		soundClone:Destroy()
+	end)
+	return soundClone
+end
+
+function module.KnockBack(Humanoid, Direction, Strength)
+	local targetRoot = Humanoid.Parent:FindFirstChild("HumanoidRootPart")
+	if targetRoot then
+		local upwardDirection = Direction + Vector3.new(0, 0.2, 0)
+		targetRoot.Velocity = upwardDirection * Strength
 	end
 end
 
-return CharacterAbilities
+function module.GetHumanoidInHitBox(character, head, direction, range, width, height)
+	-- Calculate hitbox position (centered in front of player in the given direction)
+	local hitboxPos = head.Position + (direction * (range / 2))
+
+	-- Create OverlapParams
+	local overlapParams = OverlapParams.new()
+	overlapParams.FilterDescendantsInstances = {character}
+	overlapParams.FilterType = Enum.RaycastFilterType.Exclude
+
+	-- Create a CFrame oriented in the direction
+	local hitboxCFrame = CFrame.lookAt(hitboxPos, hitboxPos + direction)
+
+	-- Use GetPartBoundsInBox which properly handles rotation
+	local parts = workspace:GetPartBoundsInBox(
+		hitboxCFrame,
+		Vector3.new(width, height, range),
+		overlapParams
+	)
+
+	local playersInRange = {}
+
+	-- Check for humanoids
+	for _, part in pairs(parts) do
+		local model = part:FindFirstAncestorOfClass("Model")
+		if model then
+			local foundHumanoid = model:FindFirstChild("Humanoid")
+			if foundHumanoid and foundHumanoid.Parent ~= character then
+				if not table.find(playersInRange, foundHumanoid) then
+					table.insert(playersInRange, foundHumanoid)
+				end
+			end
+		end
+	end
+
+	return playersInRange
+end
+
+function module.GiveDamage(Plr, humanoid, Damage)
+	if humanoid and humanoid.Health > 0 then
+		local previousHealth = humanoid.Health
+		humanoid:TakeDamage(Damage)
+		if humanoid.Health <= 0 and previousHealth > 0 then
+			local isNPC = CollectionService:HasTag(humanoid.Parent, "NPC")
+			if isNPC then
+				task.spawn(function()
+					task.wait(5)
+					if humanoid.Parent then
+						humanoid.Parent:Destroy()
+					end
+				end)
+			end
+		end
+	end
+end
+
+function module.GetClosestEnemy(Plr)
+	local Character = Plr.Character
+	local Root = Character:FindFirstChild("HumanoidRootPart")
+	local Humanoid = Character:FindFirstChild("Humanoid")
+	if not Root or not Humanoid then return nil end
+
+	local closestEnemy = nil
+	local closestDistance = math.huge
+
+	local CollectionService = game:GetService("CollectionService")
+	local NPCs = CollectionService:GetTagged("NPC")
+
+	-- Create a table to store NPCs sorted by distance
+	local npcDistances = {}
+
+	for _, npc in ipairs(NPCs) do
+		if npc:IsA("Model") then
+			local npcRoot = npc:FindFirstChild("HumanoidRootPart")
+			local npcHumanoid = npc:FindFirstChild("Humanoid")
+
+			if npcRoot and npcHumanoid and npcHumanoid.Health > 0 then
+				local distance = (Root.Position - npcRoot.Position).Magnitude
+				table.insert(npcDistances, {npc = npc, distance = distance, root = npcRoot})
+			end
+		end
+	end
+
+	-- Sort NPCs by distance
+	table.sort(npcDistances, function(a, b)
+		return a.distance < b.distance
+	end)
+
+	-- Check each NPC in order of distance for line of sight
+	for _, data in ipairs(npcDistances) do
+		local direction = (data.root.Position - Root.Position).Unit
+		local distance = data.distance
+
+		local raycastParams = RaycastParams.new()
+		raycastParams.FilterDescendantsInstances = {Character, data.npc}
+		raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+
+		local raycastResult = workspace:Raycast(Root.Position, direction * distance, raycastParams)
+
+		-- If raycast hits nothing, we have line of sight
+		if not raycastResult then
+			closestEnemy = data.npc
+			break
+		end
+	end
+
+	return closestEnemy
+end
+
+return module
