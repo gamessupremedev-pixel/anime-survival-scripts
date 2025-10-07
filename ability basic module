@@ -1,0 +1,130 @@
+local AbilitiesHelper = require(game.ServerScriptService.AnimeCharacters.AbilitiesHelper)
+
+local CharacterAbilities = {}
+
+-- Base Character Class
+local Character = {}
+Character.__index = Character
+
+function Character.new(name, player)
+	local self = setmetatable({}, Character)
+	self.name = name
+	self.player = player
+	self.cooldowns = {}
+	return self
+end
+
+function Character:isOnCooldown(abilityName)
+	if not self.cooldowns[abilityName] then
+		return false
+	end
+	return tick() < self.cooldowns[abilityName]
+end
+
+function Character:setCooldown(abilityName, duration)
+	self.cooldowns[abilityName] = tick() + duration
+end
+
+function Character:getAbilityData(abilityName)
+	-- Get weapons from Player, not Character
+	local weaponFolder = self.player:FindFirstChild("Weapons")
+	if not weaponFolder then 
+		warn("Weapons folder not found for player: " .. self.player.Name)
+		return nil 
+	end
+
+	local abilityFolder = weaponFolder:FindFirstChild(abilityName)
+	if not abilityFolder then
+		warn("Ability folder '" .. abilityName .. "' not found in Weapons")
+	end
+	return abilityFolder
+end
+
+function Character:useAbility(abilityName, ...)
+	if self:isOnCooldown(abilityName) then
+		warn(abilityName .. " is on cooldown!")
+		return false
+	end
+
+	-- Get ability data from player's weapon folder
+	local abilityData = self:getAbilityData(abilityName)
+	if not abilityData then
+		warn("Ability data not found for " .. abilityName)
+		return false
+	end
+
+	local ability = self[abilityName]
+	if ability and type(ability) == "function" then
+		ability(self, abilityData, ...)
+		return true
+	else
+		warn("Ability " .. abilityName .. " not found!")
+		return false
+	end
+end
+
+-- Luffy Character
+local Luffy = setmetatable({}, {__index = Character})
+Luffy.__index = Luffy
+
+function Luffy.new(player)
+	local self = setmetatable(Character.new("Luffy", player), Luffy)
+	return self
+end
+
+function Luffy:Punch(abilityData)
+	local cooldown = abilityData and abilityData:FindFirstChild("Cooldown") and abilityData.Cooldown.Value or 1
+	self:setCooldown("Punch", cooldown)
+
+	-- Example usage in a combat script
+	local character = player.Character
+	local head = character:FindFirstChild("Head")
+	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+
+	if head and humanoidRootPart then
+		-- Get the direction the player is facing
+		local direction = humanoidRootPart.CFrame.LookVector
+
+		-- Define hitbox parameters
+		local range = 10      -- How far in front (studs)
+		local width = 5       -- How wide left/right (studs)
+		local height = 6      -- How tall up/down (studs)
+
+		-- Get all humanoids in the hitbox
+		local hitHumanoids = module.GetHumanoidInHitBox(
+			character,
+			head,
+			direction,
+			range,
+			width,
+			height
+		)
+
+		-- Do something with the hit humanoids
+		for _, humanoid in pairs(hitHumanoids) do
+			print("Hit:", humanoid.Parent.Name)
+			-- Deal damage
+			humanoid:TakeDamage(20)
+			-- Or apply knockback, effects, etc.
+		end
+
+		-- Check if we hit anyone
+		if #hitHumanoids > 0 then
+			print("Hit " .. #hitHumanoids .. " targets!")
+		else
+			print("Missed!")
+		end
+	end
+end
+
+-- Factory function
+function CharacterAbilities.createCharacter(className, player)
+	if className == "Luffy" then
+		return Luffy.new(player)
+	else
+		warn("Unknown character class: " .. className)
+		return nil
+	end
+end
+
+return CharacterAbilities
