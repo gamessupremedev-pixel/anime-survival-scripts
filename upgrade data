@@ -1,33 +1,6 @@
-local UpgradesModule = {}
 
--- The data
-local UpgradesData = {
-	Luffy = {
-		{
-			Name = "Punch",
-			Rarity = 100,
-			Description = "Increases punch damage by 10%.",
-			Apply = function(playerData)
-				playerData.Damage = playerData.Damage + 10
-			end
-		},
-	},
-
-	General = {
-		{
-			Name = "Health Boost",
-			Rarity = 100,
-			Description = "Increases max health by 50.",
-			Apply = function(playerData)
-				playerData.MaxHealth = playerData.MaxHealth + 50
-			end
-		},
-	}
-}
-
--- Function to GET upgrade info (just the data, no applying)
-function UpgradesModule:GetUpgradeInfo(characterName, upgradeIndex)
-	local upgradeList = UpgradesData[characterName]
+local function GetUpgradeInfo(characterName,upgradeIndex)
+  local upgradeList = UpgradesData[characterName]
 	if not upgradeList then return nil end
 
 	local upgrade = upgradeList[upgradeIndex]
@@ -41,27 +14,8 @@ function UpgradesModule:GetUpgradeInfo(characterName, upgradeIndex)
 	}
 end
 
--- Function to GET all upgrades for a character (info only)
-function UpgradesModule:GetAllUpgrades(characterName)
-	local upgradeList = UpgradesData[characterName]
-	if not upgradeList then return {} end
-
-	local infoList = {}
-	for i, upgrade in ipairs(upgradeList) do
-		table.insert(infoList, {
-			Index = i,
-			Name = upgrade.Name,
-			Rarity = upgrade.Rarity,
-			Description = upgrade.Description
-		})
-	end
-
-	return infoList
-end
-
--- Function to APPLY an upgrade
-function UpgradesModule:ApplyUpgrade(characterName, upgradeIndex, playerData)
-	local upgradeList = UpgradesData[characterName]
+local function ApplyUpgrade(characterName, upgradeIndex, player)
+  local upgradeList = UpgradesData[characterName]
 	if not upgradeList then 
 		warn("Character not found:", characterName)
 		return false
@@ -74,13 +28,64 @@ function UpgradesModule:ApplyUpgrade(characterName, upgradeIndex, playerData)
 	end
 
 	-- Apply the upgrade
-	upgrade.Apply(playerData)
+	upgrade.Apply(player)
 	return true
 end
 
--- Function to check if character has upgrades
-function UpgradesModule:HasUpgrades(characterName)
-	return UpgradesData[characterName] ~= nil
+local UpgradesModule = {}
+
+local UpgradesData = {
+	Luffy = {
+		Punch = {
+			Info = {
+				Rarity = 100,
+				Description = "Increases punch damage by 10%.",
+			},
+			Apply = function(playerData)
+				playerData.Damage = playerData.Damage + 10
+			end
+		},
+		Pistol = {
+			Info = {
+				Rarity = 0,
+				Description = "Increases kick damage by 15%.",
+			},
+			Apply = function(playerData)
+				playerData.KickDamage = playerData.KickDamage + 15
+			end
+		},
+	},
+	General = {
+		Agility = {
+			Info = {
+				Rarity = 50,
+				Description = "Increases punch damage by 10%.",
+			},
+			Apply = function(playerData)
+				playerData.Damage = playerData.Damage + 10
+			end
+		},
+		Health = {
+			Info = {
+				Rarity = 50,
+				Description = "Increases kick damage by 15%.",
+			},
+			Apply = function(playerData)
+				playerData.KickDamage = playerData.KickDamage + 15
+			end
+		},
+	}
+}
+
+-- Function to GET upgrade info (just the data, no applying)
+function UpgradesModule:GetUpgradeInfoFromModule(characterName,upgradeIndex)
+  return GetUpgradeInfo(characterName,upgradeIndex)
 end
+
+-- Function to APPLY an upgrade
+function UpgradesModule:ApplyUpgradeFromModule(characterName, upgradeIndex, player)
+	ApplyUpgrade(characterName,upgradeIndex,player)
+end
+
 
 return UpgradesModule
