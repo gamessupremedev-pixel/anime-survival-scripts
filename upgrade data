@@ -1,0 +1,86 @@
+local UpgradesModule = {}
+
+-- The data
+local UpgradesData = {
+	Luffy = {
+		{
+			Name = "Punch",
+			Rarity = 100,
+			Description = "Increases punch damage by 10%.",
+			Apply = function(playerData)
+				playerData.Damage = playerData.Damage + 10
+			end
+		},
+	},
+
+	General = {
+		{
+			Name = "Health Boost",
+			Rarity = 100,
+			Description = "Increases max health by 50.",
+			Apply = function(playerData)
+				playerData.MaxHealth = playerData.MaxHealth + 50
+			end
+		},
+	}
+}
+
+-- Function to GET upgrade info (just the data, no applying)
+function UpgradesModule:GetUpgradeInfo(characterName, upgradeIndex)
+	local upgradeList = UpgradesData[characterName]
+	if not upgradeList then return nil end
+
+	local upgrade = upgradeList[upgradeIndex]
+	if not upgrade then return nil end
+
+	-- Return only the info, not the Apply function
+	return {
+		Name = upgrade.Name,
+		Rarity = upgrade.Rarity,
+		Description = upgrade.Description
+	}
+end
+
+-- Function to GET all upgrades for a character (info only)
+function UpgradesModule:GetAllUpgrades(characterName)
+	local upgradeList = UpgradesData[characterName]
+	if not upgradeList then return {} end
+
+	local infoList = {}
+	for i, upgrade in ipairs(upgradeList) do
+		table.insert(infoList, {
+			Index = i,
+			Name = upgrade.Name,
+			Rarity = upgrade.Rarity,
+			Description = upgrade.Description
+		})
+	end
+
+	return infoList
+end
+
+-- Function to APPLY an upgrade
+function UpgradesModule:ApplyUpgrade(characterName, upgradeIndex, playerData)
+	local upgradeList = UpgradesData[characterName]
+	if not upgradeList then 
+		warn("Character not found:", characterName)
+		return false
+	end
+
+	local upgrade = upgradeList[upgradeIndex]
+	if not upgrade then 
+		warn("Upgrade not found at index:", upgradeIndex)
+		return false
+	end
+
+	-- Apply the upgrade
+	upgrade.Apply(playerData)
+	return true
+end
+
+-- Function to check if character has upgrades
+function UpgradesModule:HasUpgrades(characterName)
+	return UpgradesData[characterName] ~= nil
+end
+
+return UpgradesModule
