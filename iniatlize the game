@@ -1,0 +1,115 @@
+local Plrs = game:GetService("Players")
+local SSS = game:GetService("ServerScriptService")
+local AbilitiesModuel = require(SSS.AnimeCharacters.AbilitiesBasic)
+local AbilitiesExtraFunc = require(SSS.AnimeCharacters.AbilitiesHelper)
+local UpgradeData = require(SSS.AnimeCharacters.UpgradeData)
+
+-- Function to get a random upgrade based on rarity weights
+local function GetRandomUpgradeByWeight(Plr)
+	local characterName = Plr:FindFirstChild("CharacterName")
+	if not characterName then 
+		warn("Character name not found for player:", Plr.Name)
+		return nil
+	end
+
+	local allUpgrades = {}
+
+	-- Get character-specific upgrades
+	local characterUpgrades = UpgradeData:GetAllUpgrades(characterName.Value)
+	for _, upgrade in ipairs(characterUpgrades) do
+		table.insert(allUpgrades, {
+			Type = "Character",
+			Character = characterName.Value,
+			Index = upgrade.Index,
+			Name = upgrade.Name,
+			Rarity = upgrade.Rarity,
+			Description = upgrade.Description
+		})
+	end
+
+	-- Get general upgrades
+	local generalUpgrades = UpgradeData:GetAllUpgrades("General")
+	for _, upgrade in ipairs(generalUpgrades) do
+		table.insert(allUpgrades, {
+			Type = "General",
+			Character = "General",
+			Index = upgrade.Index,
+			Name = upgrade.Name,
+			Rarity = upgrade.Rarity,
+			Description = upgrade.Description
+		})
+	end
+
+	-- Calculate total weight
+	local totalWeight = 0
+	for _, upgrade in ipairs(allUpgrades) do
+		totalWeight = totalWeight + upgrade.Rarity
+	end
+
+	-- Pick a random value
+	local randomValue = math.random() * totalWeight
+
+	-- Select upgrade based on weight
+	local currentWeight = 0
+	for _, upgrade in ipairs(allUpgrades) do
+		currentWeight = currentWeight + upgrade.Rarity
+		if randomValue <= currentWeight then
+			return upgrade
+		end
+	end
+
+	-- Fallback (shouldn't happen)
+	return allUpgrades[1]
+end
+
+local function InitializeWeapons(Plr,ChrName)
+	if ChrName.Value == "Luffy" then
+		AbilitiesExtraFunc.AddWeapon(Plr,"Punch")
+	end
+end
+
+local function ManageXp(Plr)
+	local Lv = Instance.new("NumberValue")
+	Lv.Parent = Plr
+	Lv.Name = "Level"
+	Lv.Value = 1
+	local Xp = Instance.new("NumberValue")
+	Xp.Parent = Plr
+	Xp.Name = "Xp"
+	Xp.Value = 0
+	Xp.Changed:Connect(function()
+		if Xp.Value >= Lv.Value * 100 then
+			Xp.Value = Xp.Value - Lv.Value * 100
+			Lv.Value = Lv.Value + 1
+
+			-- EXAMPLE: Give random upgrade on level up
+			print(Plr.Name, "leveled up to", Lv.Value)
+			local randomUpgrade = GetRandomUpgradeByWeight(Plr)
+			if randomUpgrade then
+				print("Got upgrade:", randomUpgrade.Name, "-", randomUpgrade.Description)
+				-- You can store it, display it in UI, or apply it here
+			end
+		end
+	end)
+end
+
+Plrs.PlayerAdded:Connect(function(Plr)
+	local CharacterName = Instance.new("StringValue")
+	CharacterName.Name = "CharacterName"
+	CharacterName.Parent = Plr
+	CharacterName.Value = "Luffy"
+
+	local Weapons = Instance.new("Folder")
+	Weapons.Name = "Weapons"
+	Weapons.Parent = Plr
+
+	ManageXp(Plr)
+	InitializeWeapons(Plr,CharacterName)
+
+	-- EXAMPLE: Give a random upgrade when player joins
+	wait(1) -- Small delay to make sure everything is set up
+	local startingUpgrade = GetRandomUpgradeByWeight(Plr)
+	if startingUpgrade then
+		print(Plr.Name, "received starting upgrade:", startingUpgrade.Name)
+	end
+end)
