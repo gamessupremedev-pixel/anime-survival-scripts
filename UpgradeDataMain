@@ -65,7 +65,7 @@ local UpgradePossiblity = {"Upgrade","Weapon","Totem"}
 local function GetAllUpgradesOfWeapons(Plr,Weapons)
 	local Data2Send = {}
 	for _, weapon in pairs(UpgradesData["ChUpgrades"]) do
-		if Plr:FindFirstChild("CharacterName") and weapon["Info"]["A2Weapon"] ==  Plr:FindFirstChild("CharacterName").Value then
+		if weapon["Info"]["A2Weapon"] ==  Weapons then
 			table.insert(Data2Send, weapon)
 		end
 	end
