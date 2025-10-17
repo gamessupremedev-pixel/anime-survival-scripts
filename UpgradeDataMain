@@ -1,0 +1,265 @@
+local UpgradeEvent = game.ReplicatedStorage.Events.SendUpgradeInfo
+local UpgradeInfoEvent = game.ReplicatedStorage.Events.SendUpgradeInfo
+
+local UpgradesData = {
+	ChUpgrades = {
+		PunchDamage = {
+			Info = {
+				Name = "Punch DMG",
+				A2Weapon = "Punch",
+				Rarity = 100,
+				Description = "Increases punch damage by 10%.",
+			},
+			Apply = function(Plr)
+				local WeaponFolder = Plr:FindFirstChild("Weapons")
+				if not WeaponFolder then return end
+
+				local ChosenFolder = WeaponFolder:FindFirstChild("Punch")
+				if not ChosenFolder then return end
+
+				ChosenFolder.Damage.Value = ChosenFolder.Damage.Value + (ChosenFolder.Damage.Value*0.2)
+			end
+		},
+	},
+	General = {
+		Agility = {
+			Info = {
+				Name = "Agility Boost",
+				A2Weapon = "General",
+				Rarity = 50,
+				Description = "Increases punch damage by 10%.",
+			},
+			Apply = function(Plr)
+				local HP = Plr:FindFirstChild("HPLimit")
+				if not HP then return end
+				HP.Value = HP.Value + (HP.Value * 0.2)
+			end
+		},
+		Health = {
+			Info = {
+				Name = "Health Boost",
+				A2Weapon = "General",
+				Rarity = 50,
+				Description = "Increases kick damage by 15%.",
+			},
+			Apply = function(Plr)
+				local character = Plr.Character
+				if not character then return end
+				local humanoid = character:FindFirstChild("Humanoid")
+				if not humanoid then return end
+				humanoid.MaxHealth = humanoid.WalkSpeed + (humanoid.WalkSpeed * 0.2)
+				humanoid.Health = humanoid.WalkSpeed + (humanoid.WalkSpeed * 0.2)
+			end
+		},
+	}
+}
+
+CharacterWeapons  = {
+	["Luffy"] = {}
+}
+
+local PlrUpgrades = {}
+
+local UpgradePossiblity = {"Upgrade","Weapon","Totem"}
+
+local function GetAllUpgradesOfWeapons(Plr,Weapons)
+	local Data2Send = {}
+	for _, weapon in pairs(UpgradesData["ChUpgrades"]) do
+		if Plr:FindFirstChild("CharacterName") and weapon["Info"]["A2Weapon"] ==  Plr:FindFirstChild("CharacterName").Value then
+			table.insert(Data2Send, weapon)
+		end
+	end
+	return Data2Send
+end
+
+local function InitializeUpgradeTable(Plr)
+	PlrUpgrades[Plr.UserId] = {}
+
+	for upgradeName, upgradeData in pairs(UpgradesData["General"]) do
+		table.insert(PlrUpgrades[Plr.UserId], upgradeData)
+		print("Added General Upgrade:", upgradeName)
+	end
+
+	-- Add character-specific upgrades
+	local CharacterName = Plr:FindFirstChild("CharacterName")
+	if CharacterName and CharacterName.Value == "Luffy" then
+		local characterUpgrades = GetAllUpgradesOfWeapons(Plr, "Punch")
+		for _, upgrade in pairs(characterUpgrades) do
+			table.insert(PlrUpgrades[Plr.UserId], upgrade)
+			print("Added Character Upgrade:", upgrade.Info.Name)
+		end
+	end
+
+	-- Print all contents of PlrUpgrades for this player
+	print("===== Player Upgrades for", Plr.Name, "=====")
+	print("Total upgrades:", #PlrUpgrades[Plr.UserId])
+	for index, upgrade in pairs(PlrUpgrades[Plr.UserId]) do
+		print("Upgrade #" .. index .. ":", upgrade.Info.Name, "- Rarity:", upgrade.Info.Rarity)
+	end
+	print("=====================================")
+end
+
+local function LockPlayer(Plr)
+	task.spawn(function()
+		local character = Plr.Character
+		if not character then return end
+		local humanoid = character:FindFirstChild("Humanoid")
+		if not humanoid then return end
+
+		local OriginalWalkSpeed = humanoid.WalkSpeed
+		local OriginalJumpPower = humanoid.JumpPower
+		local OriginalJumpHeight = humanoid.JumpHeight
+
+		humanoid.WalkSpeed = 0
+		humanoid.JumpPower = 0
+		humanoid.JumpHeight = 0
+
+		local IsMidUpgrade = Plr:FindFirstChild("IsMidUpgrade")
+		if IsMidUpgrade then
+			IsMidUpgrade.Value = true
+		end
+
+		local eventReceived = false
+		local connection
+
+		-- Set up the event listener
+		connection = UpgradeInfoEvent.OnServerEvent:Connect(function(receivedPlr)
+			if receivedPlr == Plr then
+				eventReceived = true
+				if connection then
+					connection:Disconnect()
+				end
+			end
+		end)
+
+		-- Wait for 5 seconds or until event is received
+		local startTime = tick()
+		local waitDuration = 5
+		while tick() - startTime < waitDuration and not eventReceived do
+			task.wait()
+		end
+
+		if connection then
+			connection:Disconnect()
+		end
+
+		-- Restore player movement
+		humanoid.WalkSpeed = OriginalWalkSpeed
+		humanoid.JumpPower = OriginalJumpPower
+		humanoid.JumpHeight = OriginalJumpHeight
+		if IsMidUpgrade then
+			IsMidUpgrade.Value = false
+		end
+	end)
+end
+
+local function GetUpgradeInfo(characterName, upgradeIndex)
+	local upgradeList = UpgradesData[characterName]
+	if not upgradeList then return nil end
+
+	local upgrade = upgradeList[upgradeIndex]
+	if not upgrade then return nil end
+
+	return {
+		Name = upgrade.Name,
+		Rarity = upgrade.Rarity,
+		Description = upgrade.Description
+	}
+end
+
+local function ApplyUpgrade(characterName, upgradeIndex, player)
+	local upgradeList = UpgradesData[characterName]
+	if not upgradeList then 
+		warn("Character not found:", characterName)
+		return false
+	end
+
+	local upgrade = upgradeList[upgradeIndex]
+	if not upgrade then 
+		warn("Upgrade not found at index:", upgradeIndex)
+		return false
+	end
+
+	upgrade.Apply(player)
+	return true
+end
+
+local UpgradesModule = {}
+
+function UpgradesModule:IntializePlr(Plr)
+	InitializeUpgradeTable(Plr)
+end
+
+function UpgradesModule:GetUpgradeInfoFromModule(characterName, upgradeIndex)
+	return GetUpgradeInfo(characterName, upgradeIndex)
+end
+
+function UpgradesModule:ApplyUpgradeFromModule(characterName, upgradeIndex, player)
+	ApplyUpgrade(characterName, upgradeIndex, player)
+end
+
+function UpgradesModule:ManageUpgradeStart(Plr)
+	local userId = Plr.UserId
+	if not UpgradesModule.ChosenUpgrades then
+		UpgradesModule.ChosenUpgrades = {}
+	end
+	UpgradesModule.ChosenUpgrades[userId] = {}
+
+	local allUpgrades = {}
+	for characterName, upgradeList in pairs(UpgradesData) do
+		for upgradeName, upgradeData in pairs(upgradeList) do
+			table.insert(allUpgrades, {
+				Character = characterName,
+				UpgradeName = upgradeName,
+				UpgradeData = upgradeData
+			})
+		end
+	end
+
+	local chosenCount = math.min(3, #allUpgrades)
+	local usedIndices = {}
+	local upgradeInfoToSend = {}
+
+	for i = 1, chosenCount do
+		local randomIndex
+		repeat
+			randomIndex = math.random(1, #allUpgrades)
+		until not usedIndices[randomIndex]
+		usedIndices[randomIndex] = true
+		local chosen = allUpgrades[randomIndex]
+		UpgradesModule.ChosenUpgrades[userId][chosen.UpgradeName] = chosen.UpgradeData
+		table.insert(upgradeInfoToSend, {
+			UpgradeName = chosen.UpgradeName,
+			Character = chosen.Character,
+			Info = chosen.UpgradeData.Info
+		})
+	end
+
+	UpgradeEvent:FireClient(Plr, upgradeInfoToSend)
+	LockPlayer(Plr)
+	return UpgradesModule.ChosenUpgrades[userId]
+end
+
+function UpgradesModule:ManageUpgradeApplication(Plr, UpgradeToApply)
+	local userId = Plr.UserId
+	if not UpgradesModule.ChosenUpgrades or not UpgradesModule.ChosenUpgrades[userId] then
+		warn("No chosen upgrades found for player:", userId)
+		return false
+	end
+
+	local playerUpgrades = UpgradesModule.ChosenUpgrades[userId]
+	local upgradeName = UpgradeToApply.UpgradeName
+
+	if not playerUpgrades[upgradeName] then
+		warn("Upgrade not found in player's chosen upgrades:", upgradeName)
+		return false
+	end
+
+	local upgradeData = playerUpgrades[upgradeName]
+	upgradeData.Apply(Plr)
+	print("Successfully applied upgrade:", upgradeName, "to player:", Plr.Name)
+	UpgradesModule.ChosenUpgrades[userId] = nil
+	return true
+end
+
+return UpgradesModule
